@@ -923,6 +923,24 @@ const struct ssh_signkey ssh_rsa = {
     NULL,
 };
 
+const struct ssh_signkey ssh_rsa_cert = {
+	rsa2_newkey,
+	rsa2_freekey,
+	rsa2_fmtkey,
+	rsa2_public_blob,
+	rsa2_private_blob,
+	rsa2_createkey,
+	rsa2_openssh_createkey,
+	rsa2_openssh_fmtkey,
+	6 /* n,e,d,iqmp,q,p */,
+	rsa2_pubkey_bits,
+	rsa2_verifysig,
+	rsa2_sign,
+	"ssh-rsa-cert-v01@openssh.com",
+	"rsa2",
+	NULL,
+};
+
 void *ssh_rsakex_newkey(char *data, int len)
 {
     return rsa2_newkey(&ssh_rsa, data, len);

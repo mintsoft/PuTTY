@@ -471,6 +471,7 @@ extern const struct ssh_kexes ssh_rsa_kex;
 extern const struct ssh_kexes ssh_ecdh_kex;
 extern const struct ssh_signkey ssh_dss;
 extern const struct ssh_signkey ssh_rsa;
+extern const struct ssh_signkey ssh_rsa_cert;
 extern const struct ssh_signkey ssh_ecdsa_ed25519;
 extern const struct ssh_signkey ssh_ecdsa_nistp256;
 extern const struct ssh_signkey ssh_ecdsa_nistp384;

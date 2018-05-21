@@ -452,6 +452,7 @@ const static struct ssh_signkey_with_user_pref_id hostkey_algs[] = {
     { &ssh_ecdsa_nistp521, HK_ECDSA },
     { &ssh_dss, HK_DSA },
     { &ssh_rsa, HK_RSA },
+    { &ssh_rsa_cert, HK_RSA },
 };
 
 const static struct ssh_mac *const macs[] = {
@@ -6904,6 +6905,7 @@ static void do_ssh2_transport(void *vctx)
 	    const struct ssh_kexes *k = s->preferred_kex[i];
 	    if (!k) warn = TRUE;
 	    else for (j = 0; j < k->nkexes; j++) {
+
 		alg = ssh2_kexinit_addalg(s->kexlists[KEXLIST_KEX],
 					  k->list[j]->name);
 	        alg->u.kex.kex = k->list[j];
@@ -6931,10 +6933,8 @@ static void do_ssh2_transport(void *vctx)
                 for (j = 0; j < lenof(hostkey_algs); j++) {
                     if (hostkey_algs[j].id != s->preferred_hk[i])
                         continue;
-                    if (have_ssh_host_key(ssh->savedhost, ssh->savedport,
-                                          hostkey_algs[j].alg->keytype)) {
-                        alg = ssh2_kexinit_addalg(s->kexlists[KEXLIST_HOSTKEY],
-                                                  hostkey_algs[j].alg->name);
+                    if (have_ssh_host_key(ssh->savedhost, ssh->savedport, hostkey_algs[j].alg->keytype)) {
+                        alg = ssh2_kexinit_addalg(s->kexlists[KEXLIST_HOSTKEY], hostkey_algs[j].alg->name);
                         alg->u.hk.hostkey = hostkey_algs[j].alg;
                         alg->u.hk.warn = warn;
                     }
@@ -6947,8 +6947,11 @@ static void do_ssh2_transport(void *vctx)
                 for (j = 0; j < lenof(hostkey_algs); j++) {
                     if (hostkey_algs[j].id != s->preferred_hk[i])
                         continue;
-                    alg = ssh2_kexinit_addalg(s->kexlists[KEXLIST_HOSTKEY],
-                                              hostkey_algs[j].alg->name);
+                    alg = ssh2_kexinit_addalg(s->kexlists[KEXLIST_HOSTKEY], hostkey_algs[j].alg->name);
+		    /***** WE NEED TO ADD CERTIFICATES INTO THIS KEX BITCHES! ******/
+		    /*** wibble - you are here **/
+		    logeventf(ssh, "RE3 - Building: '%s'", hostkey_algs[j].alg->name);
+
                     alg->u.hk.hostkey = hostkey_algs[j].alg;
                     alg->u.hk.warn = warn;
                 }
@@ -7152,6 +7155,9 @@ static void do_ssh2_transport(void *vctx)
 	    for (j = 0; j < MAXKEXLIST; j++) {
 		struct kexinit_algorithm *alg = &s->kexlists[i][j];
 		if (alg->name == NULL) break;
+
+		logeventf(ssh, "RE2 - Seeing KEX: '%s'",alg->name);
+
 		if (in_commasep_string(alg->name, str, len)) {
 		    /* We've found a matching algorithm. */
 		    if (i == KEXLIST_KEX || i == KEXLIST_HOSTKEY) {
@@ -7371,6 +7377,8 @@ static void do_ssh2_transport(void *vctx)
 	if (s->ignorepkt) /* first_kex_packet_follows */
             crMaybeWaitUntilV((pktin = pq_pop(&ssh->pq_ssh2_transport)) != NULL);
     }
+
+    logevent("RE2 - Before the key exchange");
 
     if (ssh->kex->main_type == KEXTYPE_DH) {
         /*
@@ -8177,7 +8185,7 @@ static void do_ssh2_transport(void *vctx)
          * checked the signature of the exchange hash.)
          */
         s->fingerprint = ssh2_fingerprint(ssh->hostkey, s->hkey);
-        logevent("Host key fingerprint is:");
+        logevent("RE2 - Host key fingerprint is:");
         logevent(s->fingerprint);
         /* First check against manually configured host keys. */
         s->dlgret = verify_ssh_manual_host_key(ssh, s->fingerprint,
