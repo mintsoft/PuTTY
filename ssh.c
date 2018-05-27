@@ -446,12 +446,12 @@ struct ssh_signkey_with_user_pref_id {
     int id;
 };
 const static struct ssh_signkey_with_user_pref_id hostkey_algs[] = {
-    { &ssh_ecdsa_ed25519, HK_ED25519 },
+    /*{ &ssh_ecdsa_ed25519, HK_ED25519 },
     { &ssh_ecdsa_nistp256, HK_ECDSA },
     { &ssh_ecdsa_nistp384, HK_ECDSA },
     { &ssh_ecdsa_nistp521, HK_ECDSA },
     { &ssh_dss, HK_DSA },
-    { &ssh_rsa, HK_RSA },
+    { &ssh_rsa, HK_RSA },*/
     { &ssh_rsa_cert, HK_RSA },
 };
 

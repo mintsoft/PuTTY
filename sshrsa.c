@@ -593,6 +593,34 @@ static void *rsa2_newkey(const struct ssh_signkey *self,
     return rsa;
 }
 
+static void *rsa2_cert_newkey(const struct ssh_signkey *self,
+	const char *data, int len)
+{
+	const char *p;
+	int slen;
+	struct RSAKey *rsa;
+
+	rsa = snew(struct RSAKey);
+	getstring(&data, &len, &p, &slen);
+
+	if (!p || slen != 28 || memcmp(p, "ssh-rsa", 28)) {
+		sfree(rsa);
+		return NULL;
+	}
+	rsa->exponent = getmp(&data, &len);
+	rsa->modulus = getmp(&data, &len);
+	rsa->private_exponent = NULL;
+	rsa->p = rsa->q = rsa->iqmp = NULL;
+	rsa->comment = NULL;
+
+	if (!rsa->exponent || !rsa->modulus) {
+		rsa2_freekey(rsa);
+		return NULL;
+	}
+
+	return rsa;
+}
+
 static void rsa2_freekey(void *key)
 {
     struct RSAKey *rsa = (struct RSAKey *) key;
@@ -924,7 +952,7 @@ const struct ssh_signkey ssh_rsa = {
 };
 
 const struct ssh_signkey ssh_rsa_cert = {
-	rsa2_newkey,
+	rsa2_cert_newkey,
 	rsa2_freekey,
 	rsa2_fmtkey,
 	rsa2_public_blob,
@@ -937,9 +965,11 @@ const struct ssh_signkey ssh_rsa_cert = {
 	rsa2_verifysig,
 	rsa2_sign,
 	"ssh-rsa-cert-v01@openssh.com",
-	"rsa2",
+	"ssh-rsa-cert-v01@openssh.com",
 	NULL,
 };
+
+
 
 void *ssh_rsakex_newkey(char *data, int len)
 {
