@@ -603,7 +603,7 @@ static void *rsa2_cert_newkey(const struct ssh_signkey *self,
 	rsa = snew(struct RSAKey);
 	getstring(&data, &len, &p, &slen);
 
-	if (!p || slen != 28 || memcmp(p, "ssh-rsa", 28)) {
+	if (!p || slen != 28 || memcmp(p, "ssh-rsa-cert-v01@openssh.com", 28)) {
 		sfree(rsa);
 		return NULL;
 	}
@@ -840,6 +840,56 @@ static const unsigned char asn1_weird_stuff[] = {
 
 #define ASN1_LEN ( (int) sizeof(asn1_weird_stuff) )
 
+static int rsa2_cert_verifysig(void *key, const char *sig, int siglen,
+	const char *data, int datalen)
+{
+	struct RSAKey *rsa = (struct RSAKey *) key;
+	Bignum in, out;
+	const char *p;
+	int slen;
+	int bytes, i, j, ret;
+	unsigned char hash[20];
+
+	getstring(&sig, &siglen, &p, &slen);
+	if (!p || slen != 28 || memcmp(p, "ssh-rsa-cert-v01@openssh.com", 28)) {
+		return 0;
+	}
+	in = getmp(&sig, &siglen);
+	if (!in)
+		return 0;
+	out = modpow(in, rsa->exponent, rsa->modulus);
+	freebn(in);
+
+	ret = 1;
+
+	bytes = (bignum_bitcount(rsa->modulus) + 7) / 8;
+	/* Top (partial) byte should be zero. */
+	if (bignum_byte(out, bytes - 1) != 0)
+		ret = 0;
+	/* First whole byte should be 1. */
+	if (bignum_byte(out, bytes - 2) != 1)
+		ret = 0;
+	/* Most of the rest should be FF. */
+	for (i = bytes - 3; i >= 20 + ASN1_LEN; i--) {
+		if (bignum_byte(out, i) != 0xFF)
+			ret = 0;
+	}
+	/* Then we expect to see the asn1_weird_stuff. */
+	for (i = 20 + ASN1_LEN - 1, j = 0; i >= 20; i--, j++) {
+		if (bignum_byte(out, i) != asn1_weird_stuff[j])
+			ret = 0;
+	}
+	/* Finally, we expect to see the SHA-1 hash of the signed data. */
+	SHA_Simple(data, datalen, hash);
+	for (i = 19, j = 0; i >= 0; i--, j++) {
+		if (bignum_byte(out, i) != hash[j])
+			ret = 0;
+	}
+	freebn(out);
+
+	return ret;
+}
+
 static int rsa2_verifysig(void *key, const char *sig, int siglen,
 			  const char *data, int datalen)
 {
@@ -962,7 +1012,7 @@ const struct ssh_signkey ssh_rsa_cert = {
 	rsa2_openssh_fmtkey,
 	6 /* n,e,d,iqmp,q,p */,
 	rsa2_pubkey_bits,
-	rsa2_verifysig,
+	rsa2_cert_verifysig,
 	rsa2_sign,
 	"ssh-rsa-cert-v01@openssh.com",
 	"ssh-rsa-cert-v01@openssh.com",
