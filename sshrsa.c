@@ -674,6 +674,40 @@ static unsigned char *rsa2_public_blob(void *key, int *len)
     return blob;
 }
 
+static unsigned char *rsa2_cert_public_blob(void *key, int *len)
+{
+	struct RSAKey *rsa = (struct RSAKey *) key;
+	int elen, mlen, bloblen;
+	int i;
+	unsigned char *blob, *p;
+
+	elen = (bignum_bitcount(rsa->exponent) + 8) / 8;
+	mlen = (bignum_bitcount(rsa->modulus) + 8) / 8;
+
+	/*
+	* string "ssh-rsa", mpint exp, mpint mod. Total 19+elen+mlen.
+	* (three length fields, 12+7=19).
+	*/
+	bloblen = 19 + elen + mlen;
+	blob = snewn(bloblen, unsigned char);
+	p = blob;
+	PUT_32BIT(p, 28);//was 7
+	p += 4;
+	memcpy(p, "ssh-rsa-cert-v01@openssh.com", 28);
+	p += 28;
+	PUT_32BIT(p, elen);
+	p += 4;
+	for (i = elen; i--;)
+		*p++ = bignum_byte(rsa->exponent, i);
+	PUT_32BIT(p, mlen);
+	p += 4;
+	for (i = mlen; i--;)
+		*p++ = bignum_byte(rsa->modulus, i);
+	assert(p == blob + bloblen);
+	*len = bloblen;
+	return blob;
+}
+
 static unsigned char *rsa2_private_blob(void *key, int *len)
 {
     struct RSAKey *rsa = (struct RSAKey *) key;
@@ -733,6 +767,28 @@ static void *rsa2_createkey(const struct ssh_signkey *self,
     }
 
     return rsa;
+}
+
+
+static void *rsa2_cert_createkey(const struct ssh_signkey *self,
+	const unsigned char *pub_blob, int pub_len,
+	const unsigned char *priv_blob, int priv_len)
+{
+	struct RSAKey *rsa;
+	const char *pb = (const char *)priv_blob;
+
+	rsa = rsa2_cert_newkey(self, (char *)pub_blob, pub_len);
+	rsa->private_exponent = getmp(&pb, &priv_len);
+	rsa->p = getmp(&pb, &priv_len);
+	rsa->q = getmp(&pb, &priv_len);
+	rsa->iqmp = getmp(&pb, &priv_len);
+
+	if (!rsa_verify(rsa)) {
+		rsa2_freekey(rsa);
+		return NULL;
+	}
+
+	return rsa;
 }
 
 static void *rsa2_openssh_createkey(const struct ssh_signkey *self,
@@ -1005,9 +1061,9 @@ const struct ssh_signkey ssh_rsa_cert = {
 	rsa2_cert_newkey,
 	rsa2_freekey,
 	rsa2_fmtkey,
-	rsa2_public_blob,
+	rsa2_cert_public_blob,
 	rsa2_private_blob,
-	rsa2_createkey,
+	rsa2_cert_createkey,
 	rsa2_openssh_createkey,
 	rsa2_openssh_fmtkey,
 	6 /* n,e,d,iqmp,q,p */,

@@ -615,6 +615,8 @@ const struct ssh_signkey *find_pubkey_alg_len(int namelen, const char *name)
 {
     if (match_ssh_id(namelen, name, "ssh-rsa"))
 	return &ssh_rsa;
+    else if (match_ssh_id(namelen, name, "ssh-rsa-cert-v01@openssh.com"))
+	return &ssh_rsa_cert;
     else if (match_ssh_id(namelen, name, "ssh-dss"))
 	return &ssh_dss;
     else if (match_ssh_id(namelen, name, "ecdsa-sha2-nistp256"))
